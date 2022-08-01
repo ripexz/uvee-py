@@ -26,8 +26,13 @@ float res_factor[6] = {4, 2, 1, 0.5, 0.25, 0.03125};
 // set up built-in neopixel on PIN_NEOPIXEL
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
+// battery level
+int batt_pin = A2; // Qt pPy BFF
+
 void setup() {
   Serial.begin(115200);
+
+  pinMode(batt_pin, INPUT);
 
   delay(200); // delay before display init
 
@@ -76,6 +81,35 @@ void loop() {
     text += "\n" + getUVRatingText(uvi);
     showText(text, 2);
   }
+
+  Serial.print("Voltage: ");
+  float voltage = analogRead(batt_pin);
+  voltage *= 2.0; // BFF outputs divided by 2
+  voltage *= 3.3; // reference voltage
+  voltage /= 1024; // map to voltage range
+  Serial.println(voltage);
+
+  // display battery level or charging
+  if (voltage > 4.2) {
+    display.fillRect(display.width()-8, 0, 8, display.height(), SSD1306_WHITE);
+  } else {
+    float cutoff = 3.2; // 0 level
+    // int bars = map((voltage - cutoff)*10, 0, 66-32, 1, 8);
+
+    int maxBars = 8;
+    float battLevel = (voltage - cutoff) / (4.2 - cutoff) * (maxBars - 1) + 1;
+    Serial.println(battLevel);
+    int bars = round(battLevel);
+
+    for (int i = 1; i <= maxBars; i++) {
+      if (i <= bars) {
+        display.fillRect(display.width()-8, (i-1)*4, 8, 3, SSD1306_WHITE);
+      } else {
+        display.drawRect(display.width()-8, (i-1)*4, 8, 3, SSD1306_WHITE);
+      }
+    }
+  }
+  display.display();
 
   delay(100);
 }
