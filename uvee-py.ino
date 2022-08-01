@@ -67,6 +67,18 @@ void setup() {
 }
 
 void loop() {
+  Serial.print("Voltage: ");
+  float voltage = analogRead(batt_pin);
+  voltage *= 2.0; // BFF outputs divided by 2
+  voltage *= 3.3; // reference voltage
+  voltage /= 1024; // map to voltage range
+  Serial.println(voltage);
+
+  drawBatteryIndicator(voltage);
+  String volText = "\nV: ";
+  volText += voltage;
+
+
   if (ltr.newDataAvailable()) {
     uint32_t raw = ltr.readUVS();
     uint8_t _gain = (uint8_t)ltr.getGain();
@@ -79,18 +91,12 @@ void loop() {
 
     String text = "UVI: ";
     text += uvi;
-    text += "\n" + getUVRatingText(uvi);
+    // FIXME: uncomment below and remove battery debugging
+    // text += "\n" + getUVRatingText(uvi);
+    text += volText;
     showText(text, 2);
   }
 
-  Serial.print("Voltage: ");
-  float voltage = analogRead(batt_pin);
-  voltage *= 2.0; // BFF outputs divided by 2
-  voltage *= 3.3; // reference voltage
-  voltage /= 1024; // map to voltage range
-  Serial.println(voltage);
-
-  drawBatteryIndicator(voltage);
 
   delay(100);
 }
@@ -151,7 +157,7 @@ void drawBatteryIndicator(float voltage) {
   display.fillRect(display.width()-(battWidth/4*3), padding, battWidth/2, graphicHeight, SSD1306_WHITE);
 
   // charging
-  if (voltage > 4.2) {
+  if (voltage > 4.1) {
     if (battBlinkOn) {
       display.fillRect(display.width()-battWidth, padding + graphicHeight, battWidth, battHeight, SSD1306_WHITE);
     } else {
@@ -166,7 +172,7 @@ void drawBatteryIndicator(float voltage) {
   // on battery power, show level:
   float cutoff = 3.2; // 0% level
   int maxFill = battHeight - 2; // leave space for rect line
-  float battLevel = (voltage - cutoff) / (4.2 - cutoff) * (maxFill);
+  float battLevel = (voltage - cutoff) / (4.0 - cutoff) * (maxFill);
   Serial.println(battLevel);
   int fillLevel = round(battLevel);
 
