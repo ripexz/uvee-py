@@ -26,8 +26,17 @@ float res_factor[6] = {4, 2, 1, 0.5, 0.25, 0.03125};
 // set up built-in neopixel on PIN_NEOPIXEL
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
+// battery level
+int batt_pin = A2; // Qt pPy BFF
+bool battBlinkOn = true;
+
+// debug
+bool batteryDebug = false;
+
 void setup() {
   Serial.begin(115200);
+
+  pinMode(batt_pin, INPUT);
 
   delay(200); // delay before display init
 
@@ -61,6 +70,18 @@ void setup() {
 }
 
 void loop() {
+  float voltage = analogRead(batt_pin);
+  voltage *= 2.0; // BFF outputs divided by 2
+  voltage *= 3.3; // reference voltage
+  voltage /= 1024; // map to voltage range
+
+  if (batteryDebug) {
+    Serial.print("Voltage: ");
+    Serial.println(voltage);
+  }
+
+  drawBatteryIndicator(voltage);
+
   if (ltr.newDataAvailable()) {
     uint32_t raw = ltr.readUVS();
     uint8_t _gain = (uint8_t)ltr.getGain();
@@ -73,9 +94,17 @@ void loop() {
 
     String text = "UVI: ";
     text += uvi;
-    text += "\n" + getUVRatingText(uvi);
+
+    if (batteryDebug) {
+      text += "\nV: ";
+      text += voltage;
+    } else {
+      text += "\n" + getUVRatingText(uvi);
+    }
+
     showText(text, 2);
   }
+
 
   delay(100);
 }
@@ -94,7 +123,8 @@ String getUVRatingText(float uvi) {
 }
 
 void showText(String text, int textSize) {
-  display.clearDisplay();
+  // display.clearDisplay();
+  display.fillRect(0, 0, display.width() - 8, display.height(), SSD1306_BLACK); // clear all but battery side
   display.setTextSize(textSize);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
@@ -120,4 +150,54 @@ void showPixelColor(int r, int g, int b) {
   pixels.setPixelColor(0, pixels.Color(r, g, b));
   pixels.show();
   delay(1000);
+}
+
+void drawBatteryIndicator(float voltage) {
+  // display battery level or charging
+  int padding = 1;
+  int graphicHeight = 2;
+  int battHeight = display.height() - graphicHeight - padding * 2;
+  int battWidth = 8;
+
+  // clear working area (full height)
+  display.fillRect(display.width()-battWidth, 0, battWidth, display.height(), SSD1306_BLACK);
+  // draw bettery terminal graphic
+  display.fillRect(display.width()-(battWidth/4*3), padding, battWidth/2, graphicHeight, SSD1306_WHITE);
+
+  // charging
+  if (voltage > 4.1) {
+    if (battBlinkOn) {
+      display.fillRect(display.width()-battWidth, padding + graphicHeight, battWidth, battHeight, SSD1306_WHITE);
+    } else {
+      display.drawRect(display.width()-battWidth, padding + graphicHeight, battWidth, battHeight, SSD1306_WHITE);
+    }
+    battBlinkOn = !battBlinkOn;
+    display.display();
+    delay(500);
+    return;
+  }
+
+  // on battery power, show level:
+  float cutoff = 3.2; // 0% level
+  int maxFill = battHeight - 2; // leave space for rect line
+  float battLevel = (voltage - cutoff) / (4.0 - cutoff) * (maxFill);
+  Serial.println(battLevel);
+  int fillLevel = round(battLevel);
+
+  display.drawRect(display.width()-battWidth, padding + graphicHeight, battWidth, battHeight, SSD1306_WHITE);
+
+  if (fillLevel > maxFill) { // just in case
+    fillLevel = maxFill;
+    Serial.print("fillLevel went above maxFill: ");
+    Serial.println(fillLevel);
+  }
+
+  display.fillRect(
+    display.width() - battWidth + 1,
+    display.height() - padding - 1 - fillLevel,
+    battWidth - 2,
+    fillLevel,
+    SSD1306_WHITE);
+
+  display.display();
 }
