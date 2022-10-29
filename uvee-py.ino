@@ -30,6 +30,9 @@ Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 int batt_pin = A2; // Qt pPy BFF
 bool battBlinkOn = true;
 
+// debug
+bool batteryDebug = false;
+
 void setup() {
   Serial.begin(115200);
 
@@ -67,17 +70,17 @@ void setup() {
 }
 
 void loop() {
-  Serial.print("Voltage: ");
   float voltage = analogRead(batt_pin);
   voltage *= 2.0; // BFF outputs divided by 2
   voltage *= 3.3; // reference voltage
   voltage /= 1024; // map to voltage range
-  Serial.println(voltage);
+
+  if (batteryDebug) {
+    Serial.print("Voltage: ");
+    Serial.println(voltage);
+  }
 
   drawBatteryIndicator(voltage);
-  String volText = "\nV: ";
-  volText += voltage;
-
 
   if (ltr.newDataAvailable()) {
     uint32_t raw = ltr.readUVS();
@@ -91,9 +94,14 @@ void loop() {
 
     String text = "UVI: ";
     text += uvi;
-    // FIXME: uncomment below and remove battery debugging
-    // text += "\n" + getUVRatingText(uvi);
-    text += volText;
+
+    if (batteryDebug) {
+      text += "\nV: ";
+      text += voltage;
+    } else {
+      text += "\n" + getUVRatingText(uvi);
+    }
+
     showText(text, 2);
   }
 
